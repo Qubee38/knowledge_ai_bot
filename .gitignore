@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# FastAPI
+.pytest_cache/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite3
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+dist/
+build/
+
+# Data
+database/seeds/*.csv
+!database/seeds/.gitkeep
+
+# Memo
+memo/

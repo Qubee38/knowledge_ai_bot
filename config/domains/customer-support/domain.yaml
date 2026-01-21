@@ -1,0 +1,71 @@
+# ドメイン: カスタマーサポートボット
+domain:
+  id: "customer-support"
+  name: "カスタマーサポートボット"
+  description: "お客様からの問い合わせに対応するAIアシスタント"
+  version: "1.0.0"
+  author: "Masato"
+
+# エージェント設定
+agent:
+  name: "SupportAssistant"
+  model: "gpt-4o"
+  temperature: 0.7
+  max_tokens: 4000
+  
+  # 使用するプロンプトキー
+  prompt_templates:
+    - "domain_instructions"
+    - "response_guidelines"
+    - "escalation_rules"
+
+# 使用するツール
+tools:
+  enabled:
+    - "search_knowledge_base"
+    - "create_ticket"
+    - "check_order_status"
+
+# UI設定
+ui:
+  # テーマカラー
+  theme:
+    primary: "#2196F3"
+    secondary: "#4CAF50"
+    accent: "#FF9800"
+  
+  # クイックアクション
+  quick_actions:
+    - label: "配送状況確認"
+      query: "注文の配送状況を確認したい"
+      icon: "📦"
+    
+    - label: "返品・交換"
+      query: "商品を返品したい"
+      icon: "🔄"
+    
+    - label: "アカウント問題"
+      query: "ログインできない"
+      icon: "🔐"
+  
+  # サンプルクエリ
+  sample_queries:
+    - "注文番号12345の配送状況は？"
+    - "商品が届いていません"
+    - "返金はいつされますか？"
+    - "パスワードを忘れました"
+
+# メトリクス
+metrics:
+  custom_metrics:
+    - name: "tickets_created"
+      description: "作成されたチケット数"
+      type: "counter"
+    
+    - name: "average_response_time"
+      description: "平均応答時間（秒）"
+      type: "gauge"
+    
+    - name: "customer_satisfaction"
+      description: "顧客満足度"
+      type: "gauge"

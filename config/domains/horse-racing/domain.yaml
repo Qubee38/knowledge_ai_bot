@@ -1,0 +1,82 @@
+# ドメイン: 競馬ナレッジボット
+domain:
+  id: "horse-racing"
+  name: "競馬ナレッジボット"
+  description: "レース傾向分析とデータドリブン推奨"
+  version: "1.0.0"
+  author: "Masato"
+
+# エージェント設定
+agent:
+  name: "RaceTrendAnalyzer"
+  model: "gpt-4o"
+  temperature: 0.7
+  max_tokens: 4000
+  
+  # 使用するプロンプトキー
+  prompt_templates:
+    - "domain_instructions"
+    - "data_reliability_guide"
+    - "analysis_procedure"
+    - "output_format"
+    - "key_principles"
+
+# 使用するツール
+tools:
+  enabled:
+    - "get_race_statistics"
+    - "analyze_elimination_conditions"
+
+# データベース設定（追加）
+database:
+  # スキーマ名を明示的に指定
+  schema: "horse_racing"
+  
+  # スキーマ分離を使用するか（デフォルト: true）
+  use_schema_separation: true
+  
+  # 注意: スキーマ分離を無効にする場合は false に設定
+  # use_schema_separation: false
+
+# UI設定
+ui:
+  # テーマカラー
+  theme:
+    primary: "#4A90E2"
+    secondary: "#50C878"
+    accent: "#FF6B6B"
+  
+  # クイックアクション
+  quick_actions:
+    - label: "シンザン記念の傾向"
+      query: "シンザン記念の傾向を教えて"
+      icon: "🏇"
+    
+    - label: "有馬記念の傾向"
+      query: "有馬記念の傾向を教えて"
+      icon: "🏆"
+    
+    - label: "今週末のG1"
+      query: "今週末のG1レースを分析して"
+      icon: "📅"
+  
+  # サンプルクエリ
+  sample_queries:
+    - "シンザン記念2026の傾向は？"
+    - "有馬記念で狙うべき馬の条件は？"
+    - "今年の皐月賞でおすすめの馬は？"
+
+# メトリクス
+metrics:
+  custom_metrics:
+    - name: "races_analyzed"
+      description: "分析したレース数"
+      type: "counter"
+    
+    - name: "predictions_made"
+      description: "予測実行回数"
+      type: "counter"
+    
+    - name: "average_analysis_time"
+      description: "平均分析時間（秒）"
+      type: "gauge"

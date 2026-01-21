@@ -1,0 +1,31 @@
+# エージェント設定
+
+agents:
+  # デフォルトエージェント設定
+  default:
+    name: "AssistantAgent"
+    model: "${llm.model}"
+    temperature: "${llm.temperature}"
+    max_tokens: "${llm.max_tokens}"
+    
+    # 基本指示（全ドメイン共通）
+    base_instructions: |
+      あなたは親切で知識豊富なAIアシスタントです。
+      
+      ## 基本原則
+      1. 正確で客観的な情報を提供
+      2. データに基づいた分析
+      3. 分かりやすく簡潔な説明
+      4. ユーザーの意図を理解
+      
+      ## 出力スタイル
+      - Markdown形式で構造化
+      - 表やグラフを活用
+      - 重要ポイントを強調
+      - 根拠を明示
+    
+    # ツール設定
+    tools:
+      enabled: true
+      timeout: 30
+      retry: 3
