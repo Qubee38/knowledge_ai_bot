@@ -1,4 +1,6 @@
 import { FC } from 'react';
+import { UserMenu } from '../auth/UserMenu';
+import { useAuth } from '../../hooks/useAuth';
 import './Header.css';
 
 interface HeaderProps {
@@ -8,6 +10,8 @@ interface HeaderProps {
 }
 
 export const Header: FC<HeaderProps> = ({ appName, appDescription, onMenuClick }) => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <header className="header">
       <div className="header-left">
@@ -29,15 +33,20 @@ export const Header: FC<HeaderProps> = ({ appName, appDescription, onMenuClick }
       </div>
       
       <div className="header-right">
-        <button className="header-action-btn" title="Settings">
-          ⚙️
-        </button>
-        <button className="header-action-btn" title="Help">
-          ❓
-        </button>
-        <button className="header-action-btn" title="Account">
-          👤
-        </button>
+        {isAuthenticated ? (
+          // 認証済み: ユーザーメニュー表示
+          <UserMenu />
+        ) : (
+          // 未認証: 既存のアクションボタン
+          <>
+            <button className="header-action-btn" title="Settings">
+              ⚙️
+            </button>
+            <button className="header-action-btn" title="Help">
+              ❓
+            </button>
+          </>
+        )}
       </div>
     </header>
   );

@@ -1,196 +1,172 @@
 """
-データベース接続ユーティリティ（スキーマ分離対応版）
-
-ドメインごとにスキーマを分離してデータを管理
+データベースユーティリティ
+Row Level Security (RLS) 対応
 """
-import os
 import psycopg2
-from typing import Optional
+import psycopg2.extras
+from psycopg2.extensions import register_adapter, AsIs
+import os
 import logging
+from typing import Optional, Tuple
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-# 環境変数からDATABASE_URL取得
-DATABASE_URL = os.getenv('DATABASE_URL')
+# UUID型をPostgreSQLで扱えるように登録
+def adapt_uuid(uuid_value):
+    """UUID型をPostgreSQLのUUID型に変換"""
+    return AsIs(f"'{str(uuid_value)}'::uuid")
 
-if not DATABASE_URL:
-    logger.warning("DATABASE_URL is not set, using default")
-    DATABASE_URL = 'postgresql://postgres:password@postgres:5432/knowledge_ai_bot'
+# UUID型アダプター登録
+register_adapter(UUID, adapt_uuid)
+
+# 環境変数からデータベースURL取得
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:password@postgres:5432/knowledge_ai_bot"
+)
 
 
-def get_db_connection(schema: Optional[str] = None):
+def get_db_connection(
+    schema: Optional[str] = None,
+    user_id: Optional[str] = None
+) -> Tuple[psycopg2.extensions.connection, psycopg2.extras.RealDictCursor]:
     """
     データベース接続取得
     
     Args:
-        schema: PostgreSQLスキーマ名（指定しない場合はpublic）
-                例: 'horse_racing', 'customer_support'
+        schema: スキーマ名（デフォルト: public）
+        user_id: ユーザーID（RLS用）
     
     Returns:
-        psycopg2接続オブジェクト
-    
-    Example:
-        # デフォルト（public）スキーマ使用
-        conn = get_db_connection()
-        
-        # 競馬ドメインスキーマ使用
-        conn = get_db_connection(schema='horse_racing')
+        tuple: (connection, cursor)
     """
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg2.connect(
+            DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+        cursor = conn.cursor()
         
+        # スキーマ設定
         if schema:
-            cursor = conn.cursor()
-            # スキーマ設定（フォールバックでpublicも検索パスに含める）
             cursor.execute(f"SET search_path TO {schema}, public")
-            logger.info(f"Database schema set to: {schema} (fallback: public)")
+            logger.debug(f"Using schema: {schema}")
         else:
-            logger.info("Using default schema (public)")
+            logger.debug("Using default schema (public)")
         
-        return conn
-    
+        # RLS用のユーザーID設定
+        if user_id:
+            cursor.execute("SET app.current_user_id = %s", (str(user_id),))
+            logger.debug(f"Set RLS user_id: {user_id}")
+        
+        return conn, cursor
+        
     except Exception as e:
-        logger.error(f"Database connection failed: {e}")
+        logger.error(f"Database connection error: {e}")
         raise
 
 
-def get_db_connection_for_domain():
+def close_db_connection(
+    conn: Optional[psycopg2.extensions.connection],
+    cursor: Optional[psycopg2.extras.RealDictCursor]
+):
     """
-    現在のアクティブドメイン用のDB接続取得
-    
-    ドメイン設定から自動的にスキーマを判定して接続。
-    設定がない場合はpublicスキーマを使用。
-    
-    Returns:
-        psycopg2接続オブジェクト
-    """
-    try:
-        from app.core.config import config_loader
-        
-        # アクティブドメイン取得
-        domain_config = config_loader.get_active_domain_config()
-        domain_name = domain_config['domain']['name']
-        
-        # データベース設定確認
-        db_config = domain_config.get('database', {})
-        
-        # スキーマ分離を使用するか確認
-        use_schema = db_config.get('use_schema_separation', True)
-        
-        if not use_schema:
-            logger.info(f"Domain '{domain_name}': Using public schema (schema separation disabled)")
-            return get_db_connection()
-        
-        # スキーマ名取得
-        if 'schema' in db_config:
-            # 明示的に指定されたスキーマ名
-            schema = db_config['schema']
-        else:
-            # ドメインIDからスキーマ名を自動生成
-            domain_id = domain_config['domain']['id']
-            schema = domain_id.replace('-', '_')
-        
-        logger.info(f"Domain '{domain_name}': Using schema '{schema}'")
-        return get_db_connection(schema=schema)
-    
-    except ImportError:
-        logger.warning("config_loader not available, using default connection (public schema)")
-        return get_db_connection()
-    except Exception as e:
-        logger.error(f"Failed to get domain-specific connection: {e}")
-        logger.warning("Falling back to public schema")
-        # フォールバック: public スキーマ
-        return get_db_connection()
-
-
-def get_db():
-    """
-    後方互換性のためのエイリアス
-    get_db_connection()と同じ
-    """
-    return get_db_connection()
-
-
-# ========================================
-# ユーティリティ関数
-# ========================================
-
-def create_schema_if_not_exists(schema_name: str):
-    """
-    スキーマが存在しない場合は作成
+    データベース接続クローズ
     
     Args:
-        schema_name: スキーマ名
+        conn: データベース接続
+        cursor: カーソル
     """
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+        logger.debug("Database connection closed")
+    except Exception as e:
+        logger.error(f"Error closing database connection: {e}")
+
+
+def execute_query(
+    query: str,
+    params: Optional[tuple] = None,
+    schema: Optional[str] = None,
+    user_id: Optional[str] = None,
+    fetch_one: bool = False,
+    fetch_all: bool = True
+):
+    """
+    クエリ実行ヘルパー関数
+    
+    Args:
+        query: SQLクエリ
+        params: クエリパラメータ
+        schema: スキーマ名
+        user_id: ユーザーID（RLS用）
+        fetch_one: 単一行取得
+        fetch_all: 全行取得
+    
+    Returns:
+        クエリ結果
+    """
+    conn = None
+    cursor = None
+    
+    try:
+        conn, cursor = get_db_connection(schema=schema, user_id=user_id)
         
-        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+        cursor.execute(query, params or ())
+        
+        if fetch_one:
+            result = cursor.fetchone()
+        elif fetch_all:
+            result = cursor.fetchall()
+        else:
+            result = None
+        
         conn.commit()
         
-        logger.info(f"Schema '{schema_name}' ensured to exist")
+        return result
         
-        conn.close()
     except Exception as e:
-        logger.error(f"Failed to create schema '{schema_name}': {e}")
+        if conn:
+            conn.rollback()
+        logger.error(f"Query execution error: {e}")
         raise
+    finally:
+        close_db_connection(conn, cursor)
 
 
-def list_schemas():
+def execute_transaction(operations: list, schema: Optional[str] = None):
     """
-    データベース内の全スキーマを取得
-    
-    Returns:
-        スキーマ名のリスト
-    """
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT schema_name 
-            FROM information_schema.schemata
-            WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
-            ORDER BY schema_name
-        """)
-        
-        schemas = [row[0] for row in cursor.fetchall()]
-        
-        conn.close()
-        
-        return schemas
-    except Exception as e:
-        logger.error(f"Failed to list schemas: {e}")
-        return []
-
-
-def get_tables_in_schema(schema_name: str):
-    """
-    指定スキーマ内のテーブル一覧を取得
+    トランザクション実行ヘルパー
     
     Args:
-        schema_name: スキーマ名
+        operations: 操作リスト [(query, params), ...]
+        schema: スキーマ名
     
     Returns:
-        テーブル名のリスト
+        成功フラグ
     """
+    conn = None
+    cursor = None
+    
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        conn, cursor = get_db_connection(schema=schema)
         
-        cursor.execute("""
-            SELECT tablename 
-            FROM pg_tables
-            WHERE schemaname = %s
-            ORDER BY tablename
-        """, (schema_name,))
+        for query, params in operations:
+            cursor.execute(query, params or ())
         
-        tables = [row[0] for row in cursor.fetchall()]
+        conn.commit()
+        logger.debug(f"Transaction completed: {len(operations)} operations")
         
-        conn.close()
+        return True
         
-        return tables
     except Exception as e:
-        logger.error(f"Failed to get tables in schema '{schema_name}': {e}")
-        return []
+        if conn:
+            conn.rollback()
+        logger.error(f"Transaction error: {e}")
+        raise
+    finally:
+        close_db_connection(conn, cursor)

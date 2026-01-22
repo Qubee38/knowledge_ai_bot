@@ -1,29 +1,34 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Message } from '../types';
+import { storage } from '../utils/storage';
+import { WS_BASE_URL } from '../utils/constants';
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [updateTrigger, setUpdateTrigger] = useState(0); // 強制更新用
+  const [updateTrigger, setUpdateTrigger] = useState(0);
   
   const wsRef = useRef<WebSocket | null>(null);
-  const messagesRef = useRef<Message[]>([]); // 最新のメッセージを保持
+  const messagesRef = useRef<Message[]>([]);
   const currentMessageRef = useRef<string>('');
   const currentMessageIdRef = useRef<string>('');
 
-  // メッセージ更新関数
   const updateMessages = useCallback((newMessages: Message[]) => {
     messagesRef.current = newMessages;
-    setMessages([...newMessages]); // 新しい配列を作成して強制更新
+    setMessages([...newMessages]);
     setUpdateTrigger(prev => prev + 1);
   }, []);
 
   useEffect(() => {
-    // WebSocket接続
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const port = '8000';
-    const wsUrl = `${protocol}//${host}:${port}/ws/chat`;
+    // WebSocket接続（認証トークン付き）
+    const token = storage.getAccessToken();
+    
+    if (!token) {
+      console.error('No access token available');
+      return;
+    }
+
+    const wsUrl = `${WS_BASE_URL}/ws/chat?token=${token}`;
     
     console.log('Connecting to WebSocket:', wsUrl);
     
@@ -45,11 +50,9 @@ export const useChat = () => {
         const lastMessage = currentMessages[currentMessages.length - 1];
         
         if (lastMessage && lastMessage.id === currentMessageIdRef.current) {
-          // 既存のアシスタントメッセージを更新
           lastMessage.content = currentMessageRef.current;
           updateMessages(currentMessages);
         } else {
-          // 新しいアシスタントメッセージを追加
           const newMessageId = `assistant-${Date.now()}`;
           currentMessageIdRef.current = newMessageId;
           
@@ -73,7 +76,6 @@ export const useChat = () => {
         currentMessageRef.current = '';
         currentMessageIdRef.current = '';
         
-        // エラーメッセージを表示
         const errorMessage: Message = {
           id: `error-${Date.now()}`,
           role: 'assistant',
@@ -112,7 +114,6 @@ export const useChat = () => {
 
     const ws = wsRef.current;
     
-    // 接続状態チェック
     if (ws.readyState !== WebSocket.OPEN) {
       console.error('WebSocket is not connected');
       return;
@@ -120,7 +121,6 @@ export const useChat = () => {
 
     console.log('Sending message:', text);
 
-    // ユーザーメッセージ追加
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -130,12 +130,10 @@ export const useChat = () => {
     
     updateMessages([...messagesRef.current, userMessage]);
     
-    // ストリーミング開始
     setIsStreaming(true);
     currentMessageRef.current = '';
     currentMessageIdRef.current = '';
 
-    // WebSocketで送信
     ws.send(JSON.stringify({ message: text }));
   }, [isStreaming, updateMessages]);
 

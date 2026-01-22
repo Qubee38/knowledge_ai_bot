@@ -1,14 +1,11 @@
 # アプリケーション基本設定
 app:
-  name: "Keiba-Knowledge AI"
-  version: "0.1.0"
+  name: "Knowledge-AI-Bot"
+  version: "0.2.0"  # ← バージョンアップ
   environment: "development"
-  
-  # 現在のドメイン
   active_domain: "horse-racing"
-  # active_domain: "customer-support"
 
-# LLM設定（OpenAI）
+# LLM設定（既存）
 llm:
   provider: "openai"
   api_key: "${OPENAI_API_KEY}"
@@ -17,29 +14,54 @@ llm:
   max_tokens: 4000
   streaming: true
 
-# データベース
+# データベース（既存）
 database:
   url: "${DATABASE_URL}"
   pool_size: 10
   timeout: 30
 
-# キャッシュ
+# キャッシュ（既存）
 cache:
   provider: "redis"
   url: "${REDIS_URL}"
   ttl: 3600
 
-# セッション
+# セッション（既存）
 session:
   provider: "redis"
   timeout: 1800
 
-# ロギング
+# 新規追加: JWT設定
+jwt:
+  secret_key: "${JWT_SECRET_KEY}"
+  algorithm: "${JWT_ALGORITHM}"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 30
+
+# 新規追加: パスワード設定
+password:
+  min_length: 8
+  require_uppercase: false
+  require_lowercase: false
+  require_digit: false
+  require_special: false
+  bcrypt_rounds: 12
+
+# 新規追加: CORS設定
+cors:
+  allow_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+  allow_credentials: true
+  allow_methods: ["*"]
+  allow_headers: ["*"]
+
+# ロギング（既存）
 logging:
   level: "INFO"
   format: "json"
 
-# 監視
+# 監視（既存）
 monitoring:
   enabled: true
   metrics_interval: 60

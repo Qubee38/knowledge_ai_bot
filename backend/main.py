@@ -1,8 +1,7 @@
 """
-FastAPI メインアプリケーション（テンプレート化版）
-AgentFactory + ToolLoader を使用した動的エージェント生成
+FastAPI メインアプリケーション（認証統合版）
 """
-from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from datetime import datetime
@@ -11,6 +10,10 @@ import json
 from app.core.config import app_settings, config_loader
 from app.core.agent_factory import AgentFactory
 from app.core.tool_loader import ToolLoader
+from app.auth.dependencies import get_current_active_user, optional_current_user
+
+# APIルーター
+from app.api import auth, domains
 
 # ロギング設定
 logging.basicConfig(
@@ -25,19 +28,24 @@ domain_config = config_loader.get_active_domain_config()
 
 # FastAPIアプリ
 app = FastAPI(
-    title=domain_config['domain']['name'],
-    version=domain_config['domain']['version'],
+    title=app_config['app']['name'],  # ← "Knowledge-AI-Bot"
+    version=app_config['app']['version'],
     description=domain_config['domain']['description']
 )
 
-# CORS設定
+# CORS設定（設定ファイルから読み込み）
+cors_config = app_config.get('cors', {})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 開発環境では全て許可
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_config.get('allow_origins', ["*"]),
+    allow_credentials=cors_config.get('allow_credentials', True),
+    allow_methods=cors_config.get('allow_methods', ["*"]),
+    allow_headers=cors_config.get('allow_headers', ["*"]),
 )
+
+# APIルーター登録
+app.include_router(auth.router)
+app.include_router(domains.router)
 
 # ツールローダー初期化
 tool_loader = ToolLoader(config_loader)
@@ -53,6 +61,7 @@ agent = agent_factory.create_agent(
     tool_functions=tool_functions
 )
 
+logger.info(f"App: {app_config['app']['name']}")
 logger.info(f"Active Domain: {domain_config['domain']['name']}")
 logger.info(f"Agent: {agent.name}")
 logger.info(f"Tools loaded: {len(tools)}")
@@ -60,7 +69,7 @@ logger.info(f"Tools loaded: {len(tools)}")
 
 @app.get("/")
 def root():
-    """ルート"""
+    """ルート（認証不要）"""
     return {
         "app": app_config['app']['name'],
         "version": app_config['app']['version'],
@@ -73,7 +82,7 @@ def root():
 
 @app.get("/api/health")
 def health_check():
-    """ヘルスチェック"""
+    """ヘルスチェック（認証不要）"""
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -83,8 +92,15 @@ def health_check():
 
 
 @app.get("/api/config/domain")
-def get_domain_config():
-    """ドメイン設定取得（Frontend用）"""
+def get_domain_config(current_user: dict = Depends(optional_current_user)):
+    """
+    ドメイン設定取得（認証オプション）
+    
+    認証されている場合、ユーザーのアクセス可能ドメインを考慮します。
+    """
+    # Phase 1: 認証チェックなし（全ユーザーに公開）
+    # Phase 2: ユーザーのアクセス権をチェック
+    
     return {
         "domain": domain_config['domain'],
         "ui": domain_config.get('ui', {})
@@ -92,12 +108,22 @@ def get_domain_config():
 
 
 @app.post("/api/chat/message")
-async def chat_message(request: dict):
-    """チャットメッセージ（非ストリーミング）"""
+async def chat_message(
+    request: dict,
+    current_user: dict = Depends(get_current_active_user)  # ← 認証必須
+):
+    """
+    チャットメッセージ（非ストリーミング）
+    
+    認証が必要です。
+    """
     query = request.get("message", "")
     
     if not query:
         raise HTTPException(status_code=400, detail="Message is required")
+    
+    # ドメインアクセス権チェック
+    # TODO: Phase 1では省略、Phase 2で実装
     
     try:
         result = agent.chat(query)
@@ -117,14 +143,65 @@ async def chat_message(request: dict):
 
 @app.websocket("/ws/chat")
 async def websocket_chat(websocket: WebSocket):
-    """チャット（ストリーミング）"""
-    # WebSocket接続を受け入れる
+    """
+    チャット（ストリーミング）
+    
+    WebSocket接続時に認証トークンをクエリパラメータで受け取ります。
+    例: ws://localhost:8000/ws/chat?token=<access_token>
+    """
     await websocket.accept()
-    logger.info(f"WebSocket connection accepted from {websocket.client}")
+    
+    # 認証チェック（Phase 1: 簡易実装）
+    # TODO: Phase 2でより厳密な認証実装
+    query_params = websocket.query_params
+    token = query_params.get('token')
+    
+    if not token:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Authentication required. Please provide token in query parameter."
+        })
+        await websocket.close(code=1008)  # Policy Violation
+        return
+    
+    # トークン検証
+    from app.core.security import verify_token
+    from app.auth.service import auth_service
+    import uuid
+    
+    payload = verify_token(token, token_type="access")
+    if not payload:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Invalid or expired token"
+        })
+        await websocket.close(code=1008)
+        return
+    
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Invalid token payload"
+        })
+        await websocket.close(code=1008)
+        return
+    
+    user_id = uuid.UUID(user_id_str)
+    user = auth_service.get_user_by_id(user_id)
+    
+    if not user or not user.get('is_active'):
+        await websocket.send_json({
+            "type": "error",
+            "message": "User not found or inactive"
+        })
+        await websocket.close(code=1008)
+        return
+    
+    logger.info(f"WebSocket connection accepted for user: {user['email']}")
     
     try:
         while True:
-            # クライアントからメッセージ受信
             data = await websocket.receive_json()
             query = data.get("message", "")
             
@@ -135,17 +212,14 @@ async def websocket_chat(websocket: WebSocket):
                 })
                 continue
             
-            logger.info(f"Received message: {query[:50]}...")
+            logger.info(f"Received message from {user['email']}: {query[:50]}...")
             
             try:
-                # エージェント実行
                 result = agent.chat(query)
-                
-                # レスポンスを送信（一括）
                 response_text = result['response']
                 
-                # チャンク分割してストリーミング風に送信
-                chunk_size = 20  # 文字数
+                # ストリーミング風に送信
+                chunk_size = 20
                 for i in range(0, len(response_text), chunk_size):
                     chunk = response_text[i:i+chunk_size]
                     await websocket.send_json({
@@ -153,7 +227,6 @@ async def websocket_chat(websocket: WebSocket):
                         "content": chunk
                     })
                 
-                # 完了通知
                 await websocket.send_json({"type": "done"})
                 logger.info("Message processing completed")
                 
@@ -167,7 +240,7 @@ async def websocket_chat(websocket: WebSocket):
                 })
     
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected from {websocket.client}")
+        logger.info(f"WebSocket disconnected for user: {user['email']}")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         import traceback

@@ -62,3 +62,7 @@ export interface ErrorResponse {
   race_name?: string;
   category?: string;
 }
+
+// ユーザー管理機能の新規追加
+export * from './auth';
+export * from './domain';
