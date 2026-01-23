@@ -239,6 +239,196 @@ class DynamicAgent:
         except Exception as e:
             logger.error(f"Chat error: {e}")
             raise
+    
+    def chat_stream(
+        self, 
+        user_message: str, 
+        conversation_history: Optional[List[Dict]] = None
+    ):
+        """
+        チャット実行（ストリーミング版）
+        
+        Args:
+            user_message: ユーザーメッセージ
+            conversation_history: 会話履歴
+        
+        Yields:
+            dict: ストリーミングイベント
+                - type: "delta" | "tool_call" | "tool_result" | "done"
+                - content: テキストチャンク（deltaの場合）
+                - tool_call: ツール呼び出し情報
+                - response: 完全な応答（doneの場合）
+                - usage: 使用量情報（doneの場合）
+        """
+        logger.info(f"Chat stream started: {user_message[:50]}...")
+        
+        # メッセージ構築
+        messages = [{"role": "system", "content": self.instructions}]
+        
+        if conversation_history:
+            messages.extend(conversation_history)
+        
+        messages.append({"role": "user", "content": user_message})
+        
+        # ストリーミング応答の蓄積用
+        accumulated_content = ""
+        accumulated_tool_calls = []
+        
+        try:
+            # OpenAI API呼び出し（ストリーミング）
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                tools=self.tools if self.tools else None,
+                tool_choice="auto" if self.tools else None,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                stream=True  # ← ストリーミング有効化
+            )
+            
+            # ストリーミング受信
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                
+                # テキストコンテンツ
+                if delta.content:
+                    accumulated_content += delta.content
+                    yield {
+                        "type": "delta",
+                        "content": delta.content
+                    }
+                
+                # ツール呼び出し
+                if delta.tool_calls:
+                    for tool_call_delta in delta.tool_calls:
+                        # ツール呼び出し情報を蓄積
+                        if tool_call_delta.index >= len(accumulated_tool_calls):
+                            accumulated_tool_calls.append({
+                                "id": tool_call_delta.id,
+                                "function": {
+                                    "name": tool_call_delta.function.name if tool_call_delta.function.name else "",
+                                    "arguments": tool_call_delta.function.arguments if tool_call_delta.function.arguments else ""
+                                }
+                            })
+                        else:
+                            # 引数を追加蓄積
+                            if tool_call_delta.function.arguments:
+                                accumulated_tool_calls[tool_call_delta.index]["function"]["arguments"] += tool_call_delta.function.arguments
+            
+            # ツール呼び出しがある場合
+            if accumulated_tool_calls:
+                logger.info(f"Tool calls detected: {len(accumulated_tool_calls)}")
+                
+                yield {
+                    "type": "tool_calls_start",
+                    "tool_calls": accumulated_tool_calls
+                }
+                
+                # メッセージにアシスタントの応答を追加
+                messages.append({
+                    "role": "assistant",
+                    "content": accumulated_content if accumulated_content else None,
+                    "tool_calls": [
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["function"]["name"],
+                                "arguments": tc["function"]["arguments"]
+                            }
+                        }
+                        for tc in accumulated_tool_calls
+                    ]
+                })
+                
+                # ツール実行
+                tool_results = []
+                for tool_call in accumulated_tool_calls:
+                    function_name = tool_call["function"]["name"]
+                    function_args = json.loads(tool_call["function"]["arguments"])
+                    
+                    logger.info(f"Calling tool: {function_name} with args: {function_args}")
+                    
+                    yield {
+                        "type": "tool_call",
+                        "tool_name": function_name,
+                        "arguments": function_args
+                    }
+                    
+                    # ツール実行
+                    if function_name in self.tool_functions:
+                        function_response = self.tool_functions[function_name](**function_args)
+                    else:
+                        function_response = {"error": f"Unknown function: {function_name}"}
+                    
+                    tool_results.append({
+                        "tool_call_id": tool_call["id"],
+                        "name": function_name,
+                        "response": function_response
+                    })
+                    
+                    # ツール結果をメッセージに追加
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "name": function_name,
+                        "content": json.dumps(function_response, ensure_ascii=False)
+                    })
+                    
+                    yield {
+                        "type": "tool_result",
+                        "tool_name": function_name,
+                        "result": function_response
+                    }
+                
+                # ツール結果を含めて再度API呼び出し（ストリーミング）
+                second_stream = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                    stream=True
+                )
+                
+                # 2回目のストリーミング応答
+                final_content = ""
+                for chunk in second_stream:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        final_content += delta.content
+                        yield {
+                            "type": "delta",
+                            "content": delta.content
+                        }
+                
+                # 完了
+                yield {
+                    "type": "done",
+                    "response": final_content,
+                    "tool_calls": [
+                        {
+                            "function": tc["function"]["name"],
+                            "arguments": json.loads(tc["function"]["arguments"])
+                        }
+                        for tc in accumulated_tool_calls
+                    ]
+                }
+            
+            else:
+                # ツール呼び出しなし
+                logger.info("No tool calls, streaming completed")
+                yield {
+                    "type": "done",
+                    "response": accumulated_content,
+                    "tool_calls": []
+                }
+        
+        except Exception as e:
+            logger.error(f"Chat stream error: {e}")
+            yield {
+                "type": "error",
+                "message": str(e)
+            }
 
 
 # 使用例:

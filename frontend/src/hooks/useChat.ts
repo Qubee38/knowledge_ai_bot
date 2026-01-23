@@ -125,8 +125,19 @@ export const useChat = () => {
           
           updateMessages([...currentMessages, newMessage]);
         }
+      } else if (data.type === 'tool_call') {
+        // ツール呼び出し通知
+        console.log('Tool call:', data.tool_name, data.arguments);
+        // TODO: UIに表示（オプション）
+      } else if (data.type === 'tool_result') {
+        // ツール結果通知
+        console.log('Tool result:', data.tool_name);
+        // TODO: UIに表示（オプション）
       } else if (data.type === 'done') {
         console.log('Streaming completed');
+        console.log('User message ID:', data.user_message_id);
+        console.log('Assistant message ID:', data.assistant_message_id);
+        console.log('Conversation ID:', data.conversation_id);
         setIsStreaming(false);
         currentMessageRef.current = '';
         currentMessageIdRef.current = '';
@@ -194,8 +205,11 @@ export const useChat = () => {
     currentMessageRef.current = '';
     currentMessageIdRef.current = '';
 
-    ws.send(JSON.stringify({ message: text }));
-  }, [isStreaming, updateMessages]);
+    ws.send(JSON.stringify({ 
+      message: text,
+      conversation_id: conversationId
+    }));
+  }, [isStreaming, conversationId, updateMessages]);
 
   return {
     messages,
