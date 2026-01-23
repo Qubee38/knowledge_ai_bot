@@ -1,0 +1,212 @@
+.domain-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  transition: all 0.3s;
+}
+
+.domain-card:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.domain-card.active {
+  border-color: #48bb78;
+  background: linear-gradient(
+    135deg,
+    rgba(72, 187, 120, 0.05) 0%,
+    rgba(255, 255, 255, 1) 100%
+  );
+}
+
+.domain-card.pending {
+  border-color: #ed8936;
+  background: linear-gradient(
+    135deg,
+    rgba(237, 137, 54, 0.05) 0%,
+    rgba(255, 255, 255, 1) 100%
+  );
+}
+
+.domain-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.domain-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.domain-info {
+  flex: 1;
+}
+
+.domain-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 8px 0;
+}
+
+.domain-description {
+  font-size: 14px;
+  color: #718096;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge.active {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.status-badge.pending {
+  background: #feebc8;
+  color: #7c2d12;
+}
+
+.status-badge.available {
+  background: #e2e8f0;
+  color: #2d3748;
+}
+
+.status-emoji {
+  font-size: 16px;
+}
+
+.domain-dates {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.date-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.date-label {
+  color: #718096;
+  font-weight: 500;
+}
+
+.date-value {
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.domain-card-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.action-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-btn.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.action-btn.secondary {
+  background: white;
+  color: #e53e3e;
+  border: 1px solid #e53e3e;
+}
+
+.action-btn.secondary:hover:not(:disabled) {
+  background: #e53e3e;
+  color: white;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pending-text {
+  flex: 1;
+  color: #ed8936;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .domain-card {
+    padding: 16px;
+  }
+
+  .domain-card-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .domain-icon {
+    font-size: 36px;
+  }
+
+  .domain-name {
+    font-size: 18px;
+  }
+
+  .domain-description {
+    font-size: 13px;
+  }
+
+  .status-badge {
+    align-self: flex-start;
+  }
+
+  .domain-dates {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .domain-card-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .action-btn {
+    width: 100%;
+  }
+
+  .pending-text {
+    text-align: center;
+  }
+}

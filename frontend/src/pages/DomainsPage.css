@@ -1,0 +1,41 @@
+.domains-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.domains-header {
+  margin-bottom: 40px;
+}
+
+.domains-header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 12px 0;
+}
+
+.domains-header p {
+  font-size: 16px;
+  color: #718096;
+  margin: 0;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .domains-page {
+    padding: 24px 16px;
+  }
+
+  .domains-header {
+    margin-bottom: 24px;
+  }
+
+  .domains-header h1 {
+    font-size: 28px;
+  }
+
+  .domains-header p {
+    font-size: 14px;
+  }
+}

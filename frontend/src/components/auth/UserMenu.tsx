@@ -29,9 +29,9 @@ export const UserMenu: React.FC = () => {
     await logout();
   };
 
-  const handleDomainsClick = () => {
+  const handleNavigation = (path: string) => {
     setIsOpen(false);
-    navigate(ROUTES.DOMAINS);
+    navigate(path);
   };
 
   if (!user) return null;
@@ -61,11 +61,36 @@ export const UserMenu: React.FC = () => {
 
           <div className="user-menu-divider" />
 
-          <button className="user-menu-item" onClick={handleDomainsClick}>
+          {/* チャット */}
+          <button
+            className="user-menu-item"
+            onClick={() => handleNavigation(ROUTES.CHAT)}
+          >
+            <span className="menu-icon">💬</span>
+            <span>チャット</span>
+          </button>
+
+          {/* 会話履歴（追加） */}
+          <button
+            className="user-menu-item"
+            onClick={() => handleNavigation(ROUTES.CONVERSATIONS)}
+          >
+            <span className="menu-icon">📚</span>
+            <span>会話履歴</span>
+          </button>
+
+          {/* ドメイン管理 */}
+          <button
+            className="user-menu-item"
+            onClick={() => handleNavigation(ROUTES.DOMAINS)}
+          >
             <span className="menu-icon">📦</span>
             <span>ドメイン管理</span>
           </button>
 
+          <div className="user-menu-divider" />
+
+          {/* 設定 */}
           <button className="user-menu-item" onClick={() => setIsOpen(false)}>
             <span className="menu-icon">⚙️</span>
             <span>設定</span>
@@ -73,6 +98,7 @@ export const UserMenu: React.FC = () => {
 
           <div className="user-menu-divider" />
 
+          {/* ログアウト */}
           <button className="user-menu-item logout" onClick={handleLogout}>
             <span className="menu-icon">🚪</span>
             <span>ログアウト</span>

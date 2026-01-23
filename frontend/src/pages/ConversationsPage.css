@@ -1,0 +1,78 @@
+.conversations-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.conversations-header {
+  margin-bottom: 32px;
+}
+
+.conversations-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 8px 0;
+}
+
+.conversations-header p {
+  font-size: 16px;
+  color: #718096;
+  margin: 0;
+}
+
+.domain-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.domain-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d3748;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.domain-filter:hover {
+  border-color: #cbd5e0;
+}
+
+.domain-filter.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.filter-icon {
+  font-size: 18px;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .conversations-page {
+    padding: 20px 16px;
+  }
+
+  .conversations-header h1 {
+    font-size: 24px;
+  }
+
+  .conversations-header p {
+    font-size: 14px;
+  }
+
+  .domain-filter {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}

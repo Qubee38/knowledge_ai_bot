@@ -13,7 +13,7 @@ from app.core.tool_loader import ToolLoader
 from app.auth.dependencies import get_current_active_user, optional_current_user
 
 # APIルーター
-from app.api import auth, domains
+from app.api import auth, domains, conversations
 
 # ロギング設定
 logging.basicConfig(
@@ -46,6 +46,7 @@ app.add_middleware(
 # APIルーター登録
 app.include_router(auth.router)
 app.include_router(domains.router)
+app.include_router(conversations.router)
 
 # ツールローダー初期化
 tool_loader = ToolLoader(config_loader)

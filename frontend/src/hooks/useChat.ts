@@ -1,12 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Message } from '../types';
 import { storage } from '../utils/storage';
 import { WS_BASE_URL } from '../utils/constants';
+import { conversationsService } from '../services/conversations.service';
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [updateTrigger, setUpdateTrigger] = useState(0);
+  
+  const [searchParams] = useSearchParams();
   
   const wsRef = useRef<WebSocket | null>(null);
   const messagesRef = useRef<Message[]>([]);
@@ -19,8 +24,62 @@ export const useChat = () => {
     setUpdateTrigger(prev => prev + 1);
   }, []);
 
+  // 会話ID取得・会話作成
   useEffect(() => {
-    // WebSocket接続（認証トークン付き）
+    const initConversation = async () => {
+      // URLから会話ID取得
+      const conversationIdFromUrl = searchParams.get('conversation');
+      
+      if (conversationIdFromUrl) {
+        // 既存会話を読み込み
+        setConversationId(conversationIdFromUrl);
+        
+        try {
+          const conversation = await conversationsService.getConversation(
+            conversationIdFromUrl
+          );
+          
+          // 過去メッセージを復元
+          const pastMessages: Message[] = conversation.messages.map(m => ({
+            id: m.message_id,
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.created_at),
+          }));
+          
+          updateMessages(pastMessages);
+          
+          console.log(`Loaded conversation: ${conversationIdFromUrl}, messages: ${pastMessages.length}`);
+        } catch (error) {
+          console.error('Failed to load conversation:', error);
+        }
+      } else {
+        // 新規会話を作成
+        try {
+          const newConversation = await conversationsService.createConversation({
+            domain: 'horse-racing', // TODO: ドメインを動的に取得
+            title: '新しい会話',
+          });
+          
+          setConversationId(newConversation.conversation_id);
+          
+          console.log(`Created new conversation: ${newConversation.conversation_id}`);
+        } catch (error) {
+          console.error('Failed to create conversation:', error);
+        }
+      }
+    };
+
+    initConversation();
+  }, [searchParams]);
+
+  // WebSocket接続
+  useEffect(() => {
+    if (!conversationId) {
+      console.log('Waiting for conversation_id...');
+      return;
+    }
+
     const token = storage.getAccessToken();
     
     if (!token) {
@@ -28,7 +87,8 @@ export const useChat = () => {
       return;
     }
 
-    const wsUrl = `${WS_BASE_URL}/ws/chat?token=${token}`;
+    // WebSocket URL with conversation_id
+    const wsUrl = `${WS_BASE_URL}/ws/chat?token=${token}&conversation_id=${conversationId}`;
     
     console.log('Connecting to WebSocket:', wsUrl);
     
@@ -41,7 +101,7 @@ export const useChat = () => {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log('WebSocket message:', data.type, data.content?.substring(0, 30));
+      console.log('WebSocket message:', data.type);
 
       if (data.type === 'delta') {
         currentMessageRef.current += data.content;
@@ -100,7 +160,7 @@ export const useChat = () => {
         ws.close();
       }
     };
-  }, [updateMessages]);
+  }, [conversationId, updateMessages]);
 
   const sendMessage = useCallback((text: string) => {
     if (!text.trim() || !wsRef.current || isStreaming) {
@@ -140,6 +200,7 @@ export const useChat = () => {
   return {
     messages,
     sendMessage,
-    isStreaming
+    isStreaming,
+    conversationId,
   };
 };

@@ -1,16 +1,20 @@
 /**
  * ドメイン管理サービス
  */
-import apiClient from './api';
-import { API_ENDPOINTS } from '../utils/constants';
-import { DomainInfo, DomainAccessRequest, DomainAccessResponse } from '../types/domain';
+import api from './api';
+import {
+  DomainInfo,
+  DomainAccessRequest,
+  DomainAccessResponse,
+  DomainsResponse,  // ← 追加
+} from '../types/domain';
 
 export const domainsService = {
   /**
    * ドメイン一覧取得
    */
-  async getDomains(): Promise<DomainInfo[]> {
-    const response = await apiClient.get<DomainInfo[]>(API_ENDPOINTS.DOMAINS);
+  async getDomains(): Promise<DomainsResponse> {  // ← 戻り値の型を修正
+    const response = await api.get<DomainsResponse>('/api/domains');
     return response.data;
   },
 
@@ -21,8 +25,8 @@ export const domainsService = {
     domainId: string,
     data: DomainAccessRequest
   ): Promise<DomainAccessResponse> {
-    const response = await apiClient.post<DomainAccessResponse>(
-      API_ENDPOINTS.DOMAIN_REQUEST(domainId),
+    const response = await api.post<DomainAccessResponse>(
+      `/api/domains/${domainId}/request`,
       data
     );
     return response.data;
@@ -32,14 +36,19 @@ export const domainsService = {
    * ドメインアクセス取り消し
    */
   async revokeDomainAccess(domainId: string): Promise<void> {
-    await apiClient.delete(API_ENDPOINTS.DOMAIN_REVOKE(domainId));
+    await api.delete(`/api/domains/${domainId}/access`);
   },
 
   /**
    * ドメインアクセス権確認
    */
-  async checkDomainAccess(domainId: string): Promise<{ has_access: boolean; status: string | null }> {
-    const response = await apiClient.get(API_ENDPOINTS.DOMAIN_CHECK(domainId));
+  async checkDomainAccess(domainId: string): Promise<{
+    has_access: boolean;
+    status: string | null;
+  }> {
+    const response = await api.get(
+      `/api/domains/check-access/${domainId}`
+    );
     return response.data;
   },
 };

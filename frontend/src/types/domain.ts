@@ -6,7 +6,8 @@ export interface DomainInfo {
   domain_id: string;
   name: string;
   description: string;
-  access_status: 'active' | 'pending' | null;
+  icon: string;
+  access_status: 'active' | 'pending' | 'available';  // ← 'available'を追加
   requested_at: string | null;
   approved_at: string | null;
 }
@@ -21,4 +22,8 @@ export interface DomainAccessResponse {
   status: string;
   requested_at: string;
   approved_at: string | null;
+}
+
+export interface DomainsResponse {
+  domains: DomainInfo[];
 }

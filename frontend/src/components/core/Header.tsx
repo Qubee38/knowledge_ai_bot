@@ -1,6 +1,8 @@
 import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserMenu } from '../auth/UserMenu';
 import { useAuth } from '../../hooks/useAuth';
+import { ROUTES } from '../../utils/constants';
 import './Header.css';
 
 interface HeaderProps {
@@ -11,6 +13,7 @@ interface HeaderProps {
 
 export const Header: FC<HeaderProps> = ({ appName, appDescription, onMenuClick }) => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="header">
@@ -23,7 +26,7 @@ export const Header: FC<HeaderProps> = ({ appName, appDescription, onMenuClick }
           ☰
         </button>
         
-        <div className="header-brand">
+        <div className="header-brand" onClick={() => navigate(ROUTES.CHAT)} style={{ cursor: 'pointer' }}>
           <div className="header-icon">🏇</div>
           <div className="header-info">
             <h1 className="header-title">{appName}</h1>
@@ -34,10 +37,27 @@ export const Header: FC<HeaderProps> = ({ appName, appDescription, onMenuClick }
       
       <div className="header-right">
         {isAuthenticated ? (
-          // 認証済み: ユーザーメニュー表示
-          <UserMenu />
+          <>
+            {/* クイックアクセスボタン（オプション） */}
+            <button
+              className="header-action-btn"
+              onClick={() => navigate(ROUTES.CONVERSATIONS)}
+              title="会話履歴"
+            >
+              📚
+            </button>
+            <button
+              className="header-action-btn"
+              onClick={() => navigate(ROUTES.DOMAINS)}
+              title="ドメイン管理"
+            >
+              📦
+            </button>
+            
+            {/* ユーザーメニュー */}
+            <UserMenu />
+          </>
         ) : (
-          // 未認証: 既存のアクションボタン
           <>
             <button className="header-action-btn" title="Settings">
               ⚙️

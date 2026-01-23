@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ChatPage } from './pages/ChatPage';
 import { DomainsPage } from './pages/DomainsPage';
+import { ConversationsPage } from './pages/ConversationsPage';
 import { ROUTES } from './utils/constants';
 
 function App() {
@@ -34,6 +35,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <DomainsPage />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* 会話履歴ルート（追加） */}
+          <Route
+            path={ROUTES.CONVERSATIONS}
+            element={
+              <ProtectedRoute>
+                <ConversationsPage />
               </ProtectedRoute>
             }
           />
