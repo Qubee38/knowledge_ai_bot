@@ -170,3 +170,80 @@ def execute_transaction(operations: list, schema: Optional[str] = None):
         raise
     finally:
         close_db_connection(conn, cursor)
+
+def get_db_connection_for_domain():
+    """
+    現在のアクティブドメインに対応したDB接続を取得
+    
+    domain.yaml の database.schema 設定を読み込み、
+    自動的にスキーマを設定した接続を返します。
+    
+    Returns:
+        psycopg2.connection: スキーマ設定済みのDB接続
+    
+    Raises:
+        Exception: スキーマ設定取得失敗時
+    """
+    try:
+        # ConfigLoaderをインポート
+        from app.core.config import config_loader
+        
+        # アクティブドメインの設定を取得
+        domain_config = config_loader.get_active_domain_config()
+        
+        # database.schema 設定を取得
+        db_config = domain_config.get('database', {})
+        schema_name = db_config.get('schema', 'public')
+        use_schema_separation = db_config.get('use_schema_separation', True)
+        
+        # スキーマ分離が無効の場合は public を使用
+        if not use_schema_separation:
+            schema_name = 'public'
+        
+        logger.info(f"Domain DB connection: schema={schema_name}")
+        
+        # スキーマ設定付きで接続
+        conn = psycopg2.connect(
+            DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+        cursor = conn.cursor()
+        
+        # search_path 設定
+        cursor.execute(f"SET search_path TO {schema_name}, public")
+        logger.debug(f"Search path set to: {schema_name}, public")
+        
+        # カーソルは閉じずに接続だけ返す
+        # （ツール側でカーソルを作成する）
+        return conn
+        
+    except Exception as e:
+        logger.error(f"Failed to get domain DB connection: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise
+
+
+def get_domain_schema_name() -> str:
+    """
+    現在のアクティブドメインのスキーマ名を取得
+    
+    Returns:
+        str: スキーマ名（例: "horse_racing"）
+    """
+    try:
+        from app.core.config import config_loader
+        
+        domain_config = config_loader.get_active_domain_config()
+        db_config = domain_config.get('database', {})
+        schema_name = db_config.get('schema', 'public')
+        use_schema_separation = db_config.get('use_schema_separation', True)
+        
+        if not use_schema_separation:
+            return 'public'
+        
+        return schema_name
+        
+    except Exception as e:
+        logger.error(f"Failed to get domain schema name: {e}")
+        return 'public'
